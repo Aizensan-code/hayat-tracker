@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hayat Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#fffaf4">
+<meta name="color-scheme" content="light">
+<style>
+/* Fikir: mürekkeple tutulan bir defter. Tek akılda kalan öğe: ruh halini
+   emoji yerine dolum seviyesi artan beş daire olarak göstermek. Her yerde aynı dil. */
+:root{
+  color-scheme:light;   /* koyu tema bilerek yok: kullanıcı beyanı, koyu tema bunaltıyor */
+  --paper:#fffaf4; --ink:#2b2a3a; --muted:#6b6672; --rule:#efe4d6;
+  --accent:#17766b; --soft:#dcf0ec; --on-accent:#fff;
+  --work:#1f6f8b; --body:#3f7d3a; --people:#c4543a; --habit:#7a5aa6;
+  --serif:Georgia,"Times New Roman",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--paper)}
+body{margin:0;color:var(--ink);font:16px/1.55 var(--sans);
+  background:linear-gradient(#ffe9d2 0,var(--paper) 280px) no-repeat var(--paper);
+  padding:0 22px calc(88px + env(safe-area-inset-bottom));}
+main{max-width:500px;margin:0 auto}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+
+header{padding:28px 0 4px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.plant{width:92px;flex:none;text-align:center}
+.plant svg{width:92px;height:auto;display:block}
+.plant p{margin:2px 0 0;font-size:12px;line-height:1.3;color:var(--muted)}
+.view-name{font-size:14px;color:var(--muted);margin:0 0 2px}
+header h1{font:400 30px/1.15 var(--serif);margin:0;letter-spacing:-.01em}
+.daynav{display:flex;align-items:center;gap:4px;margin:10px -10px 0}
+.daynav button{background:none;border:0;width:44px;height:44px;font-size:24px;border-radius:12px}
+.daynav button:disabled{opacity:.3;cursor:default}
+.daynav .rel{font-size:14px;color:var(--muted);min-width:80px;text-align:center}
+
+section.block{padding:26px 0;border-top:1px solid var(--rule);--a:var(--accent)}
+section.block:first-of-type{border-top:0}
+section[data-area=work]{--a:var(--work)}
+section[data-area=body]{--a:var(--body)}
+section[data-area=people]{--a:var(--people)}
+h2{font:400 22px/1.2 var(--serif);margin:0 0 16px;display:flex;align-items:center;gap:10px}
+section[data-area] h2::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--a);flex:none}
+.sub{font-size:14px;color:var(--muted);margin:16px 0 8px}
+
+/* Ruh hali dairesi */
+.scale{display:flex;justify-content:space-between;gap:6px}
+.disc-btn{flex:1;background:none;border:0;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:6px;border-radius:12px}
+.disc{width:46px;height:46px;border-radius:50%;border:2px solid var(--rule);
+  background:linear-gradient(to top,var(--tint,var(--rule)) calc(var(--f)*1%),transparent 0);
+  transition:transform .15s}
+.disc-btn[aria-pressed=true] .disc{--tint:var(--accent);border-color:var(--accent);transform:scale(1.08)}
+.disc-btn .nm{font-size:12px;color:var(--muted);min-height:18px}
+.disc-btn[aria-pressed=true] .nm{color:var(--ink);font-weight:600}
+
+/* Seçenek ve geçiş düğmeleri */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--rule);background:none;border-radius:999px;min-height:44px;padding:0 18px}
+.chip[aria-pressed=true]{background:var(--a);border-color:var(--a);color:var(--on-accent)}
+.chip[aria-pressed=true]::before{content:"✓ "}
+
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--rule);background:none;font-size:22px;line-height:1}
+.stepper output{font:600 26px/1 var(--sans);min-width:92px;text-align:center;font-variant-numeric:tabular-nums}
+.stepper output small{font:14px var(--sans);color:var(--muted)}
+
+input[type=text]{width:100%;min-height:44px;border:0;border-bottom:1.5px solid var(--rule);border-radius:0;
+  background:none;padding:8px 0;outline-offset:4px}
+input[type=text]::placeholder{color:var(--muted);opacity:.8}
+input[type=text]:focus{border-bottom-color:var(--a,var(--accent))}
+
+/* Hafta */
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.wk .dn{font-size:12px;color:var(--muted)}
+.wk .disc{width:36px;height:36px;margin:6px auto 0;border-width:1.5px}
+.wk .empty{border-style:dashed}
+.wk .today .dn{color:var(--ink);font-weight:700}
+.wk .today .disc{border-color:var(--accent)}
+.stat{display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-top:1px solid var(--rule)}
+.stat:first-of-type{border-top:0}
+.stat b{font:600 18px var(--sans);font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:14px;margin:8px 0 0}
+.insight{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:0;font:400 18px/1.45 var(--serif)}
+
+.btn{border:1.5px solid var(--rule);background:none;border-radius:12px;min-height:44px;padding:0 16px;margin:4px 8px 4px 0}
+
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--rule);
+  padding:6px 20px calc(6px + env(safe-area-inset-bottom))}
+nav .in{display:flex;max-width:500px;margin:0 auto}
+nav button{flex:1;border:0;background:none;color:var(--muted);min-height:48px;border-radius:12px;position:relative}
+nav button[aria-current=page]{color:var(--ink);font-weight:700}
+nav button[aria-current=page]::after{content:"";position:absolute;left:50%;bottom:4px;width:18px;height:3px;border-radius:2px;background:var(--accent);transform:translateX(-50%)}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:20px;font-size:14px;opacity:0;
+  transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:.92}
+section[data-area=habit]{--a:var(--habit)}
+h2 .link-btn{margin-left:auto;background:none;border:0;color:var(--muted);font:14px var(--sans);min-height:44px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
+.hrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--rule)}
+.hrow:first-child{border-top:0}
+.hrow button{background:none;border:0;color:var(--people);min-height:44px;padding:0 8px;font:14px var(--sans)}
+.hadd{display:flex;gap:10px;align-items:flex-end;margin-top:10px}
+.hadd input{flex:1}
+.hadd .btn{margin:0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px 2px}
+.cal-h{font-size:12px;color:var(--muted);text-align:center;padding-bottom:2px}
+.cal{background:none;border:0;padding:2px 0;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:10px;color:inherit}
+.cal .cn{font-size:12px;color:var(--muted)}
+.cal .disc{width:34px;height:34px;border-width:1.5px}
+.cal .empty{border-style:dashed}
+.cal.today .cn{color:var(--ink);font-weight:700}
+.cal.today .disc{border-color:var(--accent)}
+.cal:disabled{opacity:.35;cursor:default}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="view-name" id="vname"></p>
+      <h1 id="title"></h1>
+      <div class="daynav" id="daynav">
+        <button id="prev" aria-label="Önceki gün">‹</button>
+        <span class="rel" id="rel"></span>
+        <button id="next" aria-label="Sonraki gün">›</button>
+      </div>
+    </div>
+    <div class="plant" id="plant"></div>
+  </header>
+
+  <div id="v-today"></div>
+  <div id="v-week" hidden></div>
+  <div id="v-history" hidden></div>
+  <div id="v-more" hidden></div>
+</main>
+
+<nav aria-label="Ana gezinme"><div class="in">
+  <button data-v="today" aria-current="page">Bugün</button>
+  <button data-v="week">Hafta</button>
+  <button data-v="history">Geçmiş</button>
+  <button data-v="more">Veri</button>
+</div></nav>
+<div class="toast" id="toast" role="status" aria-live="polite">Kaydedildi</div>
+
+<script>
+const KEY = 'hayat-tracker-v1';
+const MOOD_NAMES = ['Çok kötü','Kötü','Idare eder','İyi','Çok iyi'];
+const ENERGY = ['Düşük','Orta','Yüksek'];
+const GUN = ['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+
+const HKEY = 'hayat-tracker-habits-v1';
+const MAX_HABITS = 6;
+
+let db = load();
+let habits = loadHabits();
+let day = ymd(new Date());
+let month = day.slice(0,7);
+let view = 'today';
+let editHabits = false;
+
+function load(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function loadHabits(){
+  try {
+    const h = JSON.parse(localStorage.getItem(HKEY));
+    return Array.isArray(h) ? h.filter(x => x && typeof x.id === 'string' && typeof x.name === 'string').slice(0,MAX_HABITS) : [];
+  } catch { return []; }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {}
+  flash();
+}
+function saveHabits(){
+  try { localStorage.setItem(HKEY, JSON.stringify(habits)); } catch {}
+  flash();
+}
+function addMonths(m, n){
+  const [y,mo] = m.split('-').map(Number), d = new Date(y, mo-1+n, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function ymd(d){
+  const z = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+}
+function parse(s){ const [y,m,d] = s.split('-').map(Number); return new Date(y,m-1,d); }
+function addDays(s,n){ const d = parse(s); d.setDate(d.getDate()+n); return ymd(d); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function entry(){ return db[day] || (db[day] = {}); }
+function set(k,v){
+  const e = entry();
+  if (e[k] === v) delete e[k]; else e[k] = v;   // ikinci dokunuş seçimi kaldırır
+  save(); render();
+}
+let ft;
+function flash(){
+  const t = document.getElementById('toast'); t.classList.add('show');
+  clearTimeout(ft); ft = setTimeout(()=>t.classList.remove('show'), 900);
+}
+
+function relLabel(){
+  const today = ymd(new Date());
+  if (day === today) return 'Bugün';
+  if (day === addDays(today,-1)) return 'Dün';
+  return '';
+}
+function longDate(s){
+  return parse(s).toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'});
+}
+
+function moodScale(key, value, size){
+  return '<div class="scale" role="group" aria-label="Ruh hali">'+MOOD_NAMES.map((n,i)=>
+    `<button class="disc-btn" data-set="${key}" data-val="${i+1}" aria-pressed="${value===i+1}" aria-label="${n}">
+       <span class="disc" style="--f:${(i+1)*20}"></span><span class="nm">${value===i+1?n:''}</span></button>`
+  ).join('')+'</div>';
+}
+function chipRow(key, labels){
+  const cur = (db[day]||{})[key];
+  return '<div class="chips" role="group">'+labels.map((l,i)=>
+    `<button class="chip" data-set="${key}" data-val="${i+1}" aria-pressed="${cur===i+1}">${l}</button>`).join('')+'</div>';
+}
+function toggle(key, label){
+  const cur = !!(db[day]||{})[key];
+  return `<button class="chip" data-toggle="${key}" aria-pressed="${cur}">${label}</button>`;
+}
+function stepper(key, step, unit, max, name){
+  const v = (db[day]||{})[key] || 0;
+  const shown = v ? String(v).replace('.',',') : '0';
+  return `<div class="stepper">
+    <button data-step="${key}" data-d="${-step}" data-max="${max}" aria-label="${name} azalt">−</button>
+    <output aria-label="${name}">${shown} <small>${unit}</small></output>
+    <button data-step="${key}" data-d="${step}" data-max="${max}" aria-label="${name} arttır">+</button>
+  </div>`;
+}
+
+function habitSection(e){
+  const h = e.h || {};
+  let body;
+  if (editHabits){
+    body = (habits.length ? `<div>${habits.map(x =>
+        `<div class="hrow"><span>${esc(x.name)}</span><button data-hdel="${esc(x.id)}" aria-label="${esc(x.name)} alışkanlığını sil">Sil</button></div>`).join('')}</div>` : '')
+      + (habits.length < MAX_HABITS
+        ? `<div class="hadd"><input id="hnew" type="text" maxlength="30" placeholder="Yeni alışkanlık" aria-label="Yeni alışkanlık adı"><button class="btn" data-hadd>Ekle</button></div>`
+        : `<p class="note">En fazla ${MAX_HABITS} alışkanlık ekleyebilirsin. Az olması bilerek.</p>`);
+  } else if (habits.length){
+    body = `<div class="chips">${habits.map(x =>
+      `<button class="chip" data-habit="${esc(x.id)}" aria-pressed="${!!h[x.id]}">${esc(x.name)}</button>`).join('')}</div>`;
+  } else {
+    body = `<p class="note" style="margin:0 0 12px">Takip etmek istediğin küçük şeyleri ekle. Örneğin: su içtim, kitap okudum.</p>
+      <button class="btn" data-hedit>Alışkanlık ekle</button>`;
+  }
+  const edit = habits.length || editHabits ? `<button class="link-btn" data-hedit>${editHabits ? 'Bitti' : 'Düzenle'}</button>` : '';
+  return `<section class="block" data-area="habit"><h2>Alışkanlıklarım${edit}</h2>${body}</section>`;
+}
+
+function renderToday(){
+  const e = db[day] || {};
+  document.getElementById('v-today').innerHTML = `
+    <section class="block">
+      <h2>Nasılsın?</h2>
+      ${moodScale('mood', e.mood)}
+      <p class="sub">Enerjin</p>
+      ${chipRow('energy', ENERGY)}
+    </section>
+    <section class="block" data-area="work">
+      <h2>Çalışma</h2>
+      <p class="sub" style="margin-top:0">Odaklı çalıştığın süre</p>
+      ${stepper('work', 0.5, 'saat', 16, 'Çalışma süresi')}
+      <p class="sub">Ne üzerine?</p>
+      <input type="text" data-text="workWhat" maxlength="80" aria-label="Ne üzerine çalıştın" placeholder="Ders, konu, proje" value="${esc(e.workWhat)}">
+    </section>
+    <section class="block" data-area="body">
+      <h2>Beden</h2>
+      <p class="sub" style="margin-top:0">Dün gece uyku</p>
+      ${stepper('sleep', 0.5, 'saat', 14, 'Uyku süresi')}
+      <p class="sub">Bugün</p>
+      <div class="chips">${toggle('ate','Yemek yedim')}${toggle('moved','Hareket ettim')}</div>
+    </section>
+    <section class="block" data-area="people">
+      <h2>İnsanlar</h2>
+      <div class="chips">${toggle('people','Sevdiklerimle vakit geçirdim')}</div>
+      <p class="sub">Kimlerle?</p>
+      <input type="text" data-text="who" maxlength="80" aria-label="Kimlerle vakit geçirdin" placeholder="Aile, arkadaş" value="${esc(e.who)}">
+    </section>
+    ${habitSection(e)}
+    <section class="block">
+      <h2>Bugünün tek şeyi</h2>
+      <input type="text" data-text="one" maxlength="140" aria-label="Bugünün tek şeyi" placeholder="İstersen bir cümle yaz" value="${esc(e.one)}">
+    </section>`;
+}
+
+function weekDays(){
+  const d = parse(day), dow = (d.getDay()+6)%7;
+  const mon = addDays(day,-dow);
+  return Array.from({length:7},(_,i)=>addDays(mon,i));
+}
+const sum = (a,f)=>a.reduce((s,x)=>s+(f(x)||0),0);
+const avg = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0;
+const fmt = n => (Math.round(n*10)/10).toString().replace('.',',');
+
+function renderWeek(){
+  const days = weekDays(), today = ymd(new Date());
+  const es = days.map(d => db[d] || {});
+  const logged = es.filter(e => Object.keys(e).length).length;
+  const sleeps = es.map(e=>e.sleep).filter(Boolean);
+  let insight = 'Bir kalıp görebilmek için en az 5 günlük kayıt gerekiyor. Biraz daha veri biriksin.';
+  const withBoth = Object.values(db).filter(e => e.mood && e.sleep);
+  if (withBoth.length >= 5){
+    const good = withBoth.filter(e=>e.sleep>=7).map(e=>e.mood);
+    const less = withBoth.filter(e=>e.sleep<7).map(e=>e.mood);
+    if (good.length >= 2 && less.length >= 2){
+      const a = avg(good), b = avg(less);
+      insight = Math.abs(a-b) < 0.3
+        ? 'Şimdilik uyku süresi ile ruh halin arasında belirgin bir fark görünmüyor.'
+        : `7 saat ve üstü uyuduğun günlerde ruh halin ortalama ${fmt(a)}/5, daha az uyuduğun günlerde ${fmt(b)}/5. Bu bir gözlem, kesin bir sonuç değil.`;
+    }
+  }
+  document.getElementById('v-week').innerHTML = `
+    <section class="block">
+      <div class="wk">
+        ${days.map((d,i)=>{ const m=(db[d]||{}).mood;
+          return `<div class="${d===today?'today':''}"><div class="dn">${GUN[i]}</div>
+            <div class="disc${m?'':' empty'}" style="--f:${m?m*20:0};--tint:var(--accent)" role="img" aria-label="${GUN[i]}: ${m?MOOD_NAMES[m-1]:'kayıt yok'}"></div></div>`; }).join('')}
+      </div>
+      <p class="note">${logged} / 7 gün kayıt var. Daire ne kadar doluysa ruh halin o kadar iyi.</p>
+    </section>
+    <section class="block" data-area="work">
+      <h2>Çalışma</h2>
+      <div class="stat"><span>Toplam odaklı süre</span><b>${fmt(sum(es,e=>e.work))} saat</b></div>
+      <div class="stat"><span>Çalıştığın gün</span><b>${es.filter(e=>e.work>0).length} / 7</b></div>
+    </section>
+    <section class="block" data-area="body">
+      <h2>Beden</h2>
+      <div class="stat"><span>Ortalama uyku</span><b>${sleeps.length?fmt(avg(sleeps))+' saat':'—'}</b></div>
+      <div class="stat"><span>Hareket ettiğin gün</span><b>${es.filter(e=>e.moved).length} / 7</b></div>
+      <div class="stat"><span>Yemek yediğin gün</span><b>${es.filter(e=>e.ate).length} / 7</b></div>
+    </section>
+    <section class="block" data-area="people">
+      <h2>İnsanlar</h2>
+      <div class="stat"><span>Sevdiklerinle vakit geçirdiğin gün</span><b>${es.filter(e=>e.people).length} / 7</b></div>
+    </section>
+    ${habits.length ? `<section class="block" data-area="habit">
+      <h2>Alışkanlıklarım</h2>
+      ${habits.map(x=>`<div class="stat"><span>${esc(x.name)}</span><b>${es.filter(e=>e.h&&e.h[x.id]).length} / 7</b></div>`).join('')}
+    </section>` : ''}
+    <section class="block">
+      <h2>Gözlem</h2>
+      <p class="insight">${esc(insight)}</p>
+    </section>`;
+}
+
+function renderHistory(){
+  const [y,m] = month.split('-').map(Number);
+  const count = new Date(y,m,0).getDate(), offset = (new Date(y,m-1,1).getDay()+6)%7;
+  const today = ymd(new Date());
+  const z = n => String(n).padStart(2,'0');
+  let cells = GUN.map(g => `<div class="cal-h">${g}</div>`).join('') + '<div></div>'.repeat(offset);
+  const es = [];
+  for (let i=1;i<=count;i++){
+    const d = `${y}-${z(m)}-${z(i)}`, e = db[d], mood = e && e.mood;
+    if (e) es.push(e);
+    const label = longDate(d)+': '+(mood ? MOOD_NAMES[mood-1] : e ? 'kayıt var' : 'kayıt yok');
+    cells += `<button class="cal${d===today?' today':''}" data-goto="${d}" ${d>today?'disabled':''} aria-label="${label}">
+      <span class="cn">${i}</span>
+      <span class="disc${mood||e?'':' empty'}" style="--f:${mood?mood*20:0};--tint:var(--accent)"></span></button>`;
+  }
+  const moods = es.map(e=>e.mood).filter(Boolean);
+  document.getElementById('v-history').innerHTML = `
+    <section class="block"><div class="cal-grid">${cells}</div>
+      <p class="note">Bir güne dokunursan o günün kaydı açılır. Boş günler eksik sayılmaz.</p></section>
+    <section class="block">
+      <h2>Bu ay</h2>
+      <div class="stat"><span>Kayıt olan gün</span><b>${es.length} / ${count}</b></div>
+      <div class="stat"><span>Ortalama ruh hali</span><b>${moods.length ? fmt(avg(moods))+' / 5' : '—'}</b></div>
+      <div class="stat"><span>Toplam odaklı çalışma</span><b>${fmt(sum(es,e=>e.work))} saat</b></div>
+    </section>`;
+}
+
+function renderMore(){
+  document.getElementById('v-more').innerHTML = `
+    <section class="block">
+      <h2>Verin</h2>
+      <p class="note" style="margin:0 0 12px">Her şey yalnızca bu cihazda, tarayıcıda saklanıyor. Yedek almak için dışa aktar.</p>
+      <button class="btn" id="exp">Dışa aktar</button>
+      <button class="btn" id="imp">İçe aktar</button>
+      <input type="file" id="file" accept="application/json" hidden>
+    </section>
+    <section class="block">
+      <h2>Nasıl çalışır?</h2>
+      <p class="note" style="margin:0">Puan, rozet ve seri yok. Kaydettiysen yeter, boş geçen günler eksik sayılmaz.</p>
+    </section>`;
+  document.getElementById('exp').onclick = () => {
+    const blob = new Blob([JSON.stringify({format:2, habits, days:db},null,2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'hayat-tracker-'+ymd(new Date())+'.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  };
+  const file = document.getElementById('file');
+  document.getElementById('imp').onclick = () => file.click();
+  file.onchange = async () => {
+    try {
+      const data = JSON.parse(await file.files[0].text());
+      if (typeof data !== 'object' || Array.isArray(data)) throw 0;
+      if (!confirm('Mevcut verinin üstüne yazılsın mı? Aynı tarihler değişir, diğerleri kalır.')) return;
+      const days = data.format === 2 && data.days && typeof data.days === 'object' ? data.days : data;
+      if (data.format === 2 && Array.isArray(data.habits)){
+        for (const h of data.habits){
+          if (h && typeof h.id === 'string' && typeof h.name === 'string' && habits.length < MAX_HABITS && !habits.some(x => x.id === h.id))
+            habits.push({id:h.id, name:h.name.slice(0,30)});
+        }
+        saveHabits();
+      }
+      db = Object.assign(db, days); save(); render();
+    } catch { alert('Dosya okunamadı. Daha önce dışa aktardığın bir JSON dosyası seç.'); }
+  };
+}
+
+/* Bitki: yalnızca ilerledikçe büyür, hiçbir zaman solmaz ya da küçülmez (gün bazlı) */
+function plantSvg(stage){
+  const leaf = (y,s) => `<ellipse cx="${60-12*s}" cy="${y}" rx="${9*s}" ry="${4.5*s}" transform="rotate(-25 ${60-12*s} ${y})" fill="#5fa55a"/>
+    <ellipse cx="${60+12*s}" cy="${y}" rx="${9*s}" ry="${4.5*s}" transform="rotate(25 ${60+12*s} ${y})" fill="#7bbd6e"/>`;
+  const seed = stage === 0 ? '<circle cx="60" cy="68" r="3.5" fill="#8a6a45"/>' : '';
+  const stem = stage >= 1 ? `<path d="M60 70 V${stage>=3?28:stage===2?44:58}" stroke="#4d9150" stroke-width="3.5" stroke-linecap="round"/>` : '';
+  const leaves = (stage>=1?leaf(60,.8):'')+(stage>=2?leaf(47,1):'')+(stage>=3?leaf(35,1.1):'');
+  const flower = stage >= 4 ? `<g transform="translate(60 22)">${[0,72,144,216,288].map(a=>`<ellipse cx="0" cy="-7" rx="4.5" ry="7" transform="rotate(${a})" fill="#f2a58b"/>`).join('')}<circle r="4.5" fill="#f6d36b"/></g>` : '';
+  return `<svg viewBox="0 0 120 112" role="img" aria-label="Bitki, ${stage+1}. aşama" xmlns="http://www.w3.org/2000/svg">
+    ${stem}${leaves}${flower}${seed}
+    <path d="M38 74h44l-5 30H43z" fill="#d9774f"/><rect x="33" y="68" width="54" height="9" rx="4" fill="#c4643d"/></svg>`;
+}
+function renderPlant(){
+  const el = document.getElementById('plant');
+  if (view === 'more' || view === 'history'){ el.hidden = true; return; }
+  el.hidden = false;
+  let stage, msg;
+  if (view === 'today'){
+    const e = db[day] || {};
+    const n = [e.mood, e.work>0, e.sleep||e.ate||e.moved, e.people, e.one, e.h && Object.keys(e.h).length].filter(Boolean).length;
+    stage = Math.min(4, n);
+    msg = n ? `Bugün ${n} bölüm` : 'Tohum hazır';
+  } else {
+    const logged = weekDays().filter(d => Object.keys(db[d]||{}).length).length;
+    stage = logged === 0 ? 0 : logged <= 2 ? 1 : logged <= 4 ? 2 : logged === 5 ? 3 : 4;
+    msg = logged ? `${logged} gün kayıt` : 'Tohum hazır';
+  }
+  el.innerHTML = plantSvg(stage) + `<p>${msg}</p>`;
+}
+
+function render(){
+  const today = ymd(new Date());
+  const dn = document.getElementById('daynav');
+  const hist = view === 'history';
+  dn.hidden = view === 'more';
+  document.getElementById('next').disabled = hist ? month >= today.slice(0,7) : day >= today;
+  document.getElementById('prev').setAttribute('aria-label', hist ? 'Önceki ay' : 'Önceki gün');
+  document.getElementById('next').setAttribute('aria-label', hist ? 'Sonraki ay' : 'Sonraki gün');
+  document.getElementById('rel').textContent = hist ? '' : relLabel();
+  const names = {today:'Check-in', week:'Hafta özeti', history:'Geçmiş', more:'Ayarlar'};
+  document.getElementById('vname').textContent = names[view];
+  const [my,mm] = month.split('-').map(Number);
+  const monthName = new Date(my,mm-1,1).toLocaleDateString('tr-TR',{month:'long',year:'numeric'});
+  document.getElementById('title').textContent =
+    view === 'more' ? 'Veri ve yedek' : view === 'week' ? 'Bu hafta' : hist ? monthName : longDate(day);
+  for (const v of ['today','week','history','more']) document.getElementById('v-'+v).hidden = v !== view;
+  document.querySelectorAll('nav button').forEach(b => {
+    if (b.dataset.v === view) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
+  });
+  if (view === 'today') renderToday();
+  if (view === 'week') renderWeek();
+  if (view === 'history') renderHistory();
+  if (view === 'more') renderMore();
+  renderPlant();
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('button'); if (!t) return;
+  if (t.dataset.set) return set(t.dataset.set, +t.dataset.val);
+  if (t.dataset.toggle){ const e = entry(), k = t.dataset.toggle; if (e[k]) delete e[k]; else e[k] = true; save(); return render(); }
+  if (t.dataset.step){
+    const e = entry(), k = t.dataset.step;
+    const v = Math.min(+t.dataset.max, Math.max(0, (e[k]||0) + +t.dataset.d));
+    if (v) e[k] = v; else delete e[k];
+    save(); return render();
+  }
+  if (t.dataset.habit){
+    const e = entry(), id = t.dataset.habit;
+    e.h = e.h || {};
+    if (e.h[id]) delete e.h[id]; else e.h[id] = true;
+    if (!Object.keys(e.h).length) delete e.h;
+    save(); return render();
+  }
+  if (t.dataset.hedit !== undefined){ editHabits = !editHabits; return render(); }
+  if (t.dataset.hadd !== undefined) return addHabit();
+  if (t.dataset.hdel){
+    const h = habits.find(x => x.id === t.dataset.hdel);
+    if (h && confirm(`"${h.name}" alışkanlığı silinsin mi? Geçmiş işaretlerin dışa aktarımda kalır ama uygulamada görünmez.`)){
+      habits = habits.filter(x => x.id !== h.id); saveHabits(); render();
+    }
+    return;
+  }
+  if (t.dataset.goto){ day = t.dataset.goto; view = 'today'; return render(); }
+  if (t.dataset.v){ view = t.dataset.v; if (view === 'history') month = day.slice(0,7); return render(); }
+  if (t.id === 'prev'){ if (view === 'history') month = addMonths(month,-1); else day = addDays(day,-1); return render(); }
+  if (t.id === 'next'){ if (view === 'history') month = addMonths(month,1); else day = addDays(day,1); return render(); }
+});
+
+function addHabit(){
+  const input = document.getElementById('hnew'); if (!input) return;
+  const name = input.value.trim().slice(0,30);
+  if (!name || habits.length >= MAX_HABITS || habits.some(x => x.name.toLowerCase() === name.toLowerCase())) return;
+  habits.push({id:'h'+Date.now().toString(36), name});
+  saveHabits(); render();
+  const again = document.getElementById('hnew'); if (again) again.focus();
+}
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Enter' && ev.target.id === 'hnew'){ ev.preventDefault(); addHabit(); }
+});
+
+document.addEventListener('change', ev => {
+  const k = ev.target.dataset && ev.target.dataset.text; if (!k) return;
+  const e = entry(), v = ev.target.value.trim();
+  if (v) e[k] = v; else delete e[k];
+  save();
+});
+
+for (const k of Object.keys(db)) if (!Object.keys(db[k]).length) delete db[k];
+
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
